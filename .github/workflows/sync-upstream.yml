@@ -1,0 +1,45 @@
+# Don't open a PR straight from this branch's fork to upstream - the sync commits
+# would show up in the diff. Branch from upstream/dev instead: see
+# 'git fetch upstream dev && git checkout -b my-fix upstream/dev'.
+
+name: Sync with upstream (zigpy/zha-device-handlers)
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # guards against this ever running as upstream's own workflow (e.g. if this file
+    # were merged into zigpy/zha-device-handlers by any path) - it would otherwise try
+    # to add itself as its own "upstream" remote and push to its own default branch
+    if: github.repository != 'zigpy/zha-device-handlers'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/zigpy/zha-device-handlers.git
+          git fetch upstream dev
+
+      - name: Merge upstream/dev into dev
+        run: |
+          git merge upstream/dev --no-edit
+
+      - name: Push
+        run: |
+          git push origin dev
